@@ -1,19 +1,22 @@
 package com.giltgroupe.util.gatling.websocket
 
-import akka.actor.{Props, ActorRef}
-import com.excilys.ebi.gatling.core.action.builder.ActionBuilder
-import com.excilys.ebi.gatling.core.action.{Action, BaseActor, Bypass, system}
-import com.excilys.ebi.gatling.core.config.ProtocolConfigurationRegistry
-import com.excilys.ebi.gatling.core.result.message.RequestStatus._
-import com.excilys.ebi.gatling.core.result.writer.DataWriter
-import com.excilys.ebi.gatling.core.session.{EvaluatableString, Session}
-import com.excilys.ebi.gatling.core.util.StringHelper._
-import com.excilys.ebi.gatling.core.util.TimeHelper.nowMillis
-import com.excilys.ebi.gatling.http.ahc.GatlingHttpClient
-import com.ning.http.client.websocket.{WebSocket, WebSocketListener, WebSocketTextListener, WebSocketUpgradeHandler}
-import grizzled.slf4j.Logging
 import java.io.IOException
 import java.net.URI
+
+import com.excilys.ebi.gatling.core.action.{ Action, BaseActor, Bypass }
+import com.excilys.ebi.gatling.core.action.builder.ActionBuilder
+import com.excilys.ebi.gatling.core.action.system
+import com.excilys.ebi.gatling.core.config.ProtocolConfigurationRegistry
+import com.excilys.ebi.gatling.core.result.message.RequestStatus.{ KO, OK, RequestStatus }
+import com.excilys.ebi.gatling.core.result.writer.DataWriter
+import com.excilys.ebi.gatling.core.session.{ EvaluatableString, Session }
+import com.excilys.ebi.gatling.core.util.StringHelper.END_OF_LINE
+import com.excilys.ebi.gatling.core.util.TimeHelper.nowMillis
+import com.excilys.ebi.gatling.http.ahc.GatlingHttpClient
+import com.ning.http.client.websocket.{ WebSocket, WebSocketListener, WebSocketTextListener, WebSocketUpgradeHandler }
+
+import akka.actor.{ ActorRef, Props }
+import grizzled.slf4j.Logging
 
 object Predef {
   /**
@@ -26,9 +29,8 @@ object Predef {
   /** The default AsyncHttpClient WebSocket client. */
   implicit object WebSocketClient extends WebSocketClient with Logging {
     def open(uri: URI, listener: WebSocketListener) {
-      GatlingHttpClient.client.prepareGet(uri.toString).execute(
-        new WebSocketUpgradeHandler.Builder().addWebSocketListener(listener).build()
-      )
+      GatlingHttpClient.defaultClient.prepareGet(uri.toString).execute(
+        new WebSocketUpgradeHandler.Builder().addWebSocketListener(listener).build())
     }
   }
 
@@ -98,8 +100,7 @@ private[websocket] abstract class WebSocketAction(actionName: EvaluatableString)
   def resolvedActionName(session: Session): String = {
     try {
       actionName(session)
-    }
-    catch {
+    } catch {
       case e => error("Action name resolution crashed", e); "no-name"
     }
   }
@@ -133,8 +134,7 @@ private[websocket] class OpenWebSocketAction(attributeName: String, actionName: 
         def onClose(webSocket: WebSocket) {
           if (opened) {
             actor ! OnClose
-          }
-          else {
+          } else {
             actor ! OnFailedOpen(rActionName, "closed", started, nowMillis, next, session)
           }
         }
@@ -142,14 +142,12 @@ private[websocket] class OpenWebSocketAction(attributeName: String, actionName: 
         def onError(t: Throwable) {
           if (opened) {
             actor ! OnError(t)
-          }
-          else {
+          } else {
             actor ! OnFailedOpen(rActionName, t.getMessage, started, nowMillis, next, session)
           }
         }
       })
-    }
-    catch {
+    } catch {
       case e: IOException =>
         actor ! OnFailedOpen(rActionName, e.getMessage, started, nowMillis, next, session)
     }
@@ -223,8 +221,7 @@ private[websocket] class WebSocketActor(val attributeName: String, requestLogger
       next ! session.setFailed
       context.stop(self)
       true
-    }
-    else {
+    } else {
       false
     }
   }
